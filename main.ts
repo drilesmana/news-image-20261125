@@ -3,10 +3,11 @@
 
 import { copyFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+const SRC_PATH = fileURLToPath(new URL('./entry.png', import.meta.url));
 const OUT_DIR = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 const OUT_PATH = join(OUT_DIR, 'entry.png');
-const SRC_PATH = join(__dirname, 'entry.png');
 
 function main(): void {
   copyFileSync(SRC_PATH, OUT_PATH);
