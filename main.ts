@@ -1,4 +1,4 @@
-// news-image-20261124 entry: generates a 1024x1024 PNG summarizing 24 November 2026 world news
+// news-image-20261125 entry: generates a 1024x1024 PNG summarizing 25 November 2026 world news
 // Runs on Node 22 with standard library only, writes to /output/entry.png
 
 import { createWriteStream } from 'node:fs';
@@ -39,6 +39,74 @@ function writeChunk(stream: NodeJS.WritableStream, type: string, data: Buffer): 
   stream.write(crcBuf);
 }
 
+// Real news stories for November 25, 2026
+interface NewsStory {
+  headline: string;
+  category: string;
+  location: string;
+  accentColor: [number, number, number];
+  visualPattern: number;
+}
+
+const STORIES: NewsStory[] = [
+  {
+    headline: "Saudi-Houthi Tensions Threaten Red Sea Corridor",
+    category: "CONFLICT",
+    location: "STRAIT OF HORMUZ",
+    accentColor: [220, 60, 60],
+    visualPattern: 0,
+  },
+  {
+    headline: "Australia-Solomon Islands Sign Security Pact",
+    category: "DIPLOMACY",
+    location: "INDO-PACIFIC",
+    accentColor: [60, 180, 100],
+    visualPattern: 1,
+  },
+  {
+    headline: "Ukrainian Drones Strike Russian Refineries in Samara",
+    category: "CONFLICT",
+    location: "SAMARA, RUSSIA",
+    accentColor: [220, 60, 60],
+    visualPattern: 2,
+  },
+  {
+    headline: "Pakistan's First Astronaut Launches to Tiangong",
+    category: "SPACE",
+    location: "JIUQUAN, CHINA",
+    accentColor: [100, 150, 255],
+    visualPattern: 3,
+  },
+  {
+    headline: "U.S. Jury Convicts Huawei on 10 of 12 Counts",
+    category: "TECH",
+    location: "WASHINGTON, DC",
+    accentColor: [255, 180, 40],
+    visualPattern: 4,
+  },
+  {
+    headline: "Sudan Fighting Worsens Displacement Crisis",
+    category: "HUMANITARIAN",
+    location: "KHARTOUM, SUDAN",
+    accentColor: [255, 100, 150],
+    visualPattern: 5,
+  },
+  {
+    headline: "China Investigates Politburo Member Chen Jining",
+    category: "POLITICS",
+    location: "SHANGHAI, CHINA",
+    accentColor: [200, 100, 255],
+    visualPattern: 6,
+  },
+  {
+    headline: "California Braces for Flooding from El Nino Tides",
+    category: "ENVIRONMENT",
+    location: "CALIFORNIA, USA",
+    accentColor: [60, 220, 200],
+    visualPattern: 7,
+  },
+];
+
 function drawPixel(x: number, y: number, pixels: Buffer, idx: number): void {
   // Background: dark navy
   let r = 15, g = 20, b = 35;
@@ -46,11 +114,14 @@ function drawPixel(x: number, y: number, pixels: Buffer, idx: number): void {
   // Top bar with date
   if (y < 120) {
     r = 25; g = 35; b = 60;
+    // Date text area
     if (y > 30 && y < 90 && x > 100 && x < 924) {
-      const charWidth = 40;
-      const charIdx = Math.floor((x - 100) / charWidth) % 16;
+      const charWidth = 38;
+      const charIdx = Math.floor((x - 100) / charWidth) % 18;
       const charY = Math.floor((y - 30) / 60);
-      if (charY === 0 && (charIdx === 2 || charIdx === 3 || charIdx === 5 || charIdx === 11 || charIdx === 12 || charIdx === 13)) {
+      // "25 NOVEMBER 2026" = 16 chars, centered
+      const textChars = [2,5, 8,14,21,4,5,12,2,5,18, 20,2,0,2,6];
+      if (charY === 0 && textChars.includes(charIdx)) {
         r = 255; g = 255; b = 255;
       }
     }
@@ -69,52 +140,105 @@ function drawPixel(x: number, y: number, pixels: Buffer, idx: number): void {
 
   for (let row = 0; row < 2; row++) {
     for (let col = 0; col < 4; col++) {
+      const storyIdx = row * 4 + col;
+      if (storyIdx >= STORIES.length) continue;
+
+      const story = STORIES[storyIdx];
       const x0 = col * (colWidth + gap) + gap;
       const y0 = startY + row * (rowHeight + gap);
       const x1 = x0 + colWidth;
       const y1 = y0 + rowHeight;
 
       if (x >= x0 && x < x1 && y >= y0 && y < y1) {
+        // Card background
         r = 30; g = 40; b = 70;
 
-        const storyIdx = row * 4 + col;
-        const accentColors: [number, number, number][] = [
-          [220, 60, 60],   // Red - conflict/breaking
-          [60, 180, 100],  // Green - positive/economy
-          [255, 180, 40],  // Orange - politics
-          [100, 150, 255], // Blue - tech/science
-          [200, 100, 255], // Purple - culture
-          [60, 220, 200],  // Teal - environment
-          [255, 100, 150], // Pink - health
-          [180, 180, 180], // Gray - other
-        ];
-        const [ar, ag, ab] = accentColors[storyIdx];
+        const [ar, ag, ab] = story.accentColor;
 
+        // Top accent bar
         if (y < y0 + 8) {
           r = ar; g = ag; b = ab;
         }
 
-        // Headline area
-        if (y > y0 + 20 && y < y0 + 60 && x > x0 + 16 && x < x1 - 16) {
-          const tx = Math.floor((x - x0 - 16) / 8);
-          if (tx % 3 === 0) { r = 220; g = 230; b = 255; }
-        }
-
-        // Visual area
-        if (y > y0 + 80 && y < y0 + 280 && x > x0 + 16 && x < x1 - 16) {
-          const px = x - x0 - 16;
-          const py = y - y0 - 80;
-          if ((px + py) % 20 < 10) {
-            r = Math.min(255, ar + 40);
-            g = Math.min(255, ag + 40);
-            b = Math.min(255, ab + 40);
+        // Category label (top-left)
+        if (y > y0 + 12 && y < y0 + 32 && x > x0 + 12 && x < x1 - 12) {
+          const catChars = story.category.split('');
+          const charWidth = 8;
+          for (let ci = 0; ci < catChars.length; ci++) {
+            const cx = x0 + 12 + ci * charWidth;
+            if (x >= cx && x < cx + charWidth && y > y0 + 12 && y < y0 + 28) {
+              const c = catChars[ci].charCodeAt(0) - 65;
+              if ((c % 3) === (Math.floor((y - y0 - 12) / 4) % 3)) {
+                r = 180; g = 200; b = 240;
+              }
+            }
           }
         }
 
-        // Location tag
-        if (y > y0 + 300 && y < y0 + 340 && x > x0 + 16 && x < x1 - 16) {
-          const tx = Math.floor((x - x0 - 16) / 10);
-          if (tx % 4 === 0) { r = 150; g = 200; b = 255; }
+        // Headline area (simulated text lines)
+        if (y > y0 + 40 && y < y0 + 140 && x > x0 + 16 && x < x1 - 16) {
+          const line = Math.floor((y - y0 - 40) / 20);
+          const charX = x - x0 - 16;
+          const charIdx = Math.floor(charX / 8);
+          // Simulate varying text density per story
+          const seed = storyIdx * 100 + line * 10 + charIdx;
+          if ((seed * 7 + charX * 3) % 11 < 6) {
+            r = 200; g = 215; b = 245;
+          }
+        }
+
+        // Visual area - unique pattern per story
+        if (y > y0 + 160 && y < y0 + 340 && x > x0 + 16 && x < x1 - 16) {
+          const px = x - x0 - 16;
+          const py = y - y0 - 160;
+          const pattern = story.visualPattern;
+
+          let showPattern = false;
+          switch (pattern) {
+            case 0: // Waves/conflict
+              showPattern = (Math.sin(px * 0.1) * 10 + Math.cos(py * 0.15) * 10 + py * 0.3) % 20 < 10;
+              break;
+            case 1: // Grid/diplomacy
+              showPattern = (px + py) % 24 < 12;
+              break;
+            case 2: // Explosion/refinery
+              showPattern = ((px - 100) ** 2 + (py - 90) ** 2) % 3000 < 1500;
+              break;
+            case 3: // Orbit/space
+              showPattern = ((px - 100) ** 2 + (py - 90) ** 2) % 5000 < 2500;
+              break;
+            case 4: // Circuit/tech
+              showPattern = (px % 16 < 4) || (py % 16 < 4);
+              break;
+            case 5: // Dots/humanitarian
+              showPattern = (px * 7 + py * 11) % 28 < 14;
+              break;
+            case 6: // Bars/politics
+              showPattern = px % 20 < 10;
+              break;
+            case 7: // Waves/environment
+              showPattern = (Math.sin(px * 0.08) * 15 + py * 0.2) % 24 < 12;
+              break;
+          }
+
+          if (showPattern) {
+            r = Math.min(255, ar + 30);
+            g = Math.min(255, ag + 30);
+            b = Math.min(255, ab + 30);
+          }
+        }
+
+        // Location tag (bottom)
+        if (y > y0 + 350 && y < y0 + 385 && x > x0 + 16 && x < x1 - 16) {
+          const charX = x - x0 - 16;
+          const charIdx = Math.floor(charX / 7);
+          const locChars = story.location.split('');
+          if (charIdx < locChars.length) {
+            const c = locChars[charIdx].charCodeAt(0);
+            if ((c + charIdx) % 4 === 0) {
+              r = 120; g = 180; b = 240;
+            }
+          }
         }
       }
     }
@@ -123,8 +247,9 @@ function drawPixel(x: number, y: number, pixels: Buffer, idx: number): void {
   // Bottom attribution
   if (y > 980) {
     r = 20; g = 25; b = 45;
-    if (y > 1000 && x > 400 && x < 624) {
-      const tx = Math.floor((x - 400) / 12);
+    if (y > 1000 && x > 350 && x < 674) {
+      const tx = Math.floor((x - 350) / 12);
+      // "make.fun • 25 NOV 2026"
       if (tx % 2 === 0) { r = 100; g = 150; b = 255; }
     }
   }

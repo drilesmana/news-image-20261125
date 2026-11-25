@@ -1,2 +1,3 @@
 out/
-create-image.js
+create-image.jsnode_modules/
+package-lock.json
