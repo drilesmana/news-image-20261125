@@ -137,7 +137,7 @@ function drawPixel(x: number, y: number, pixels: Buffer, idx: number): void {
 async function main(): Promise<void> {
   const fileStream = createWriteStream(OUT_PATH);
 
-  // PNG signature
+  // PNG signature: 89 50 4E 47 0D 0A 1A 0A
   fileStream.write(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
 
   // IHDR chunk
@@ -163,7 +163,7 @@ async function main(): Promise<void> {
     writeChunk(fileStream, 'IDAT', compressed);
   }
 
-  // IEND chunk
+  // IEND chunk: length 0, type IEND, CRC
   writeChunk(fileStream, 'IEND', Buffer.alloc(0));
 
   await new Promise<void>((resolve, reject) => {
