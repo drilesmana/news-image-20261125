@@ -133,10 +133,11 @@ function drawPixel(x: number, y: number, pixels: Buffer, idx: number): void {
   }
 
   // News sections: 4 columns x 2 rows = 8 stories
-  const colWidth = 240;
+  // Fixed: colWidth=220, gap=24 → 4*220 + 5*24 = 1000 ≤ 1024
+  const colWidth = 220;
   const rowHeight = 400;
   const startY = 160;
-  const gap = 32;
+  const gap = 24;
 
   for (let row = 0; row < 2; row++) {
     for (let col = 0; col < 4; col++) {
@@ -276,17 +277,21 @@ async function main(): Promise<void> {
   ihdr[12] = 0;
   writeChunk(fileStream, 'IHDR', ihdr);
 
-  // Create image data row by row to avoid large memory allocation
-  const rowBuffer = Buffer.alloc(WIDTH * 3 + 1);
+  // Build all filtered scanlines into one buffer, then compress once
+  const rowSize = WIDTH * 3 + 1; // +1 for filter byte
+  const allFiltered = Buffer.alloc(HEIGHT * rowSize);
   for (let y = 0; y < HEIGHT; y++) {
-    rowBuffer[0] = 0; // filter type 0 (none)
+    const offset = y * rowSize;
+    allFiltered[offset] = 0; // filter type 0 (none)
     for (let x = 0; x < WIDTH; x++) {
       const idx = x * 3;
-      drawPixel(x, y, rowBuffer, idx + 1);
+      drawPixel(x, y, allFiltered, offset + 1 + idx);
     }
-    const compressed = zlib.deflateSync(rowBuffer, { level: 9 });
-    writeChunk(fileStream, 'IDAT', compressed);
   }
+
+  // Single deflate, single IDAT chunk
+  const compressed = zlib.deflateSync(allFiltered, { level: 9 });
+  writeChunk(fileStream, 'IDAT', compressed);
 
   // IEND chunk: length 0, type IEND, CRC
   writeChunk(fileStream, 'IEND', Buffer.alloc(0));
